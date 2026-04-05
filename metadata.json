@@ -1,0 +1,5 @@
+{
+  "name": "IdentityOS",
+  "description": "AI-powered Human Design engine for calculating and interpreting your unique energetic blueprint.",
+  "requestFramePermissions": ["geolocation"]
+}
