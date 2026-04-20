@@ -104,8 +104,15 @@ export const BodyGraph = ({ data }: { data: HumanDesignResult }) => {
         onMouseMove={handleHover}
         onMouseLeave={() => setHoveredItem(null)}
         className="transition-colors duration-300 cursor-help"
-        animate={defined ? { fillOpacity: [0.8, 1, 0.8] } : {}}
-        transition={defined ? { duration: 4, repeat: Infinity, ease: "easeInOut" } : {}}
+        animate={defined ? { 
+          fillOpacity: [0.7, 1, 0.7],
+          filter: [
+            'drop-shadow(0 0 0px rgba(99, 102, 241, 0))',
+            'drop-shadow(0 0 8px rgba(99, 102, 241, 0.5))',
+            'drop-shadow(0 0 0px rgba(99, 102, 241, 0))'
+          ]
+        } : {}}
+        transition={defined ? { duration: 3, repeat: Infinity, ease: "easeInOut" } : {}}
       />
     );
   };

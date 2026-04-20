@@ -28,6 +28,8 @@ import {
   History,
   Trash2,
   Save,
+  Share2,
+  Copy,
   ArrowLeft,
   PenTool,
   Type as TypeIcon,
@@ -55,6 +57,7 @@ import {
 import { cn } from "@/src/lib/utils";
 import Markdown from 'react-markdown';
 import { BodyGraph, MandalaWheel } from "./components/HumanDesignVisuals";
+import { Skeleton, CardSkeleton, ChartSkeleton, LabResultSkeleton } from "./components/Skeleton";
 
 // --- Types ---
 
@@ -144,6 +147,7 @@ export default function App() {
   const [logoConcepts, setLogoConcepts] = useState<LogoConcept[] | null>(null);
   const [contentResult, setContentResult] = useState<ContentGeneration | null>(null);
   const [businessResult, setBusinessResult] = useState<BusinessAlignment | null>(null);
+  const [isSharedView, setIsSharedView] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [view, setView] = useState<'home' | 'saved' | 'voice' | 'aura' | 'logos' | 'content' | 'business'>('home');
   const [analyzingVoice, setAnalyzingVoice] = useState(false);
@@ -164,6 +168,19 @@ export default function App() {
 
   // Load saved data on mount
   React.useEffect(() => {
+    // Check for shared chart in URL
+    const params = new URLSearchParams(window.location.search);
+    const sharedData = params.get('share');
+    if (sharedData) {
+      try {
+        const decoded = JSON.parse(decodeURIComponent(atob(sharedData)));
+        setResult(decoded);
+        setIsSharedView(true);
+      } catch (e) {
+        console.error("Failed to decode shared chart", e);
+      }
+    }
+
     const blueprints = localStorage.getItem('identityos_blueprints');
     const readings = localStorage.getItem('identityos_readings');
     if (blueprints) setSavedBlueprints(JSON.parse(blueprints));
@@ -201,6 +218,18 @@ export default function App() {
     };
     const updated = [newReading, ...savedReadings].slice(0, 10); // Keep last 10
     saveReadings(updated);
+  };
+
+  const handleShareChart = () => {
+    if (!result) return;
+    try {
+      const encoded = btoa(encodeURIComponent(JSON.stringify(result)));
+      const shareUrl = `${window.location.origin}${window.location.pathname}?share=${encoded}`;
+      navigator.clipboard.writeText(shareUrl);
+      alert("Shareable link copied to clipboard!");
+    } catch (e) {
+      console.error("Failed to generate share link", e);
+    }
   };
 
   const handleDeleteBlueprint = (index: number) => {
@@ -820,7 +849,16 @@ export default function App() {
         </header>
 
         {view === 'home' ? (
-          !result ? (
+          loading ? (
+            <div className="max-w-4xl mx-auto py-12">
+              <div className="text-center mb-12">
+                <Loader2 className="w-12 h-12 text-indigo-500 animate-spin mx-auto mb-4" />
+                <h2 className="text-2xl font-bold text-white">Calculating Your Blueprint</h2>
+                <p className="text-slate-400">Decoding the stars and your energetic signature...</p>
+              </div>
+              <ChartSkeleton />
+            </div>
+          ) : !result ? (
             <motion.div
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
@@ -898,27 +936,43 @@ export default function App() {
           ) : (
             <div className="space-y-8">
               {/* Action Bar */}
-              <div className="flex justify-between items-center">
-                <button 
-                  onClick={() => setResult(null)}
-                  className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
-                >
-                  <ArrowLeft className="w-4 h-4" />
-                  Back to Form
-                </button>
-                <div className="flex items-center gap-4">
-                  <button 
-                    onClick={handleSaveBlueprint}
-                    className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-medium"
-                  >
-                    <Save className="w-4 h-4" />
-                    Save Blueprint
-                  </button>
-                  <div className="text-xs text-slate-500 uppercase tracking-widest font-bold">
-                    Blueprint Generated
+                <div className="flex justify-between items-center">
+                  {!isSharedView ? (
+                    <button 
+                      onClick={() => setResult(null)}
+                      className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors text-sm"
+                    >
+                      <ArrowLeft className="w-4 h-4" />
+                      Back to Form
+                    </button>
+                  ) : (
+                    <div className="flex items-center gap-2 text-indigo-400 font-bold text-sm">
+                      <Sparkles className="w-4 h-4" />
+                      Shared Chart
+                    </div>
+                  )}
+                  <div className="flex items-center gap-4">
+                    {!isSharedView && (
+                      <button 
+                        onClick={handleSaveBlueprint}
+                        className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-medium"
+                      >
+                        <Save className="w-4 h-4" />
+                        Save
+                      </button>
+                    )}
+                    <button 
+                      onClick={handleShareChart}
+                      className="flex items-center gap-2 text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-medium"
+                    >
+                      <Share2 className="w-4 h-4" />
+                      Share
+                    </button>
+                    <div className="text-xs text-slate-500 uppercase tracking-widest font-bold hidden sm:block">
+                      Blueprint Generated
+                    </div>
                   </div>
                 </div>
-              </div>
 
               {/* Main Stats */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
@@ -975,7 +1029,37 @@ export default function App() {
 
               {/* Daily Alignment Section */}
               <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-                {!dailyReading ? (
+                {generatingDaily ? (
+                  <Card className="border-indigo-500/30 bg-indigo-500/5">
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-8 h-8 rounded-lg" />
+                        <Skeleton className="w-48 h-6" />
+                      </div>
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div className="space-y-4">
+                          <Skeleton className="w-32 h-4" />
+                          <Skeleton className="w-full h-20" />
+                          <Skeleton className="w-full h-12 rounded-xl" />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <Skeleton className="w-24 h-4" />
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-4" />
+                          </div>
+                          <div className="space-y-2">
+                            <Skeleton className="w-24 h-4" />
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-4" />
+                            <Skeleton className="w-full h-4" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </Card>
+                ) : !dailyReading ? (
                   <Card className="border-dashed border-indigo-500/30 bg-indigo-500/5 flex flex-col items-center py-12">
                     <Sun className="w-12 h-12 text-indigo-400 mb-4 animate-pulse" />
                     <h3 className="text-xl font-bold text-white mb-2">Daily Alignment</h3>
@@ -1084,6 +1168,11 @@ export default function App() {
                       <h3 className="text-xl font-bold text-white mb-2">Holistic Summary</h3>
                       <div className="text-slate-300 leading-relaxed prose prose-invert max-w-none">
                         <Markdown>{result.summary}</Markdown>
+                      </div>
+                      <div className="mt-8 pt-8 border-t border-white/5 text-center">
+                        <p className="text-xs text-slate-600 font-medium tracking-widest uppercase">
+                          Calculated by IdentityOS • Created by <span className="text-indigo-500/50">DDMGURU</span>
+                        </p>
                       </div>
                     </div>
                   </div>
@@ -1200,7 +1289,16 @@ export default function App() {
 
               <div className="lg:col-span-3">
                 <AnimatePresence mode="wait">
-                  {!voiceAnalysis ? (
+                  {analyzingVoice ? (
+                    <motion.div 
+                      key="loading-voice"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <LabResultSkeleton />
+                    </motion.div>
+                  ) : !voiceAnalysis ? (
                     <motion.div 
                       key="empty"
                       initial={{ opacity: 0 }}
@@ -1326,7 +1424,32 @@ export default function App() {
 
               <div className="space-y-8">
                 <AnimatePresence mode="wait">
-                  {!auraAnalysis ? (
+                  {analyzingAura ? (
+                    <motion.div 
+                      key="loading-aura"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="space-y-8"
+                    >
+                      <div className="space-y-4">
+                        <Skeleton className="w-32 h-4" />
+                        {[...Array(5)].map((_, i) => (
+                          <div key={i} className="flex items-center gap-4">
+                            <Skeleton className="w-16 h-16 rounded-xl" />
+                            <div className="flex-1 space-y-2">
+                              <Skeleton className="w-24 h-4" />
+                              <Skeleton className="w-full h-3" />
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="space-y-4">
+                        <Skeleton className="w-32 h-4" />
+                        <Skeleton className="w-full h-32 rounded-xl" />
+                      </div>
+                    </motion.div>
+                  ) : !auraAnalysis ? (
                     <motion.div 
                       key="empty-aura"
                       initial={{ opacity: 0 }}
@@ -1424,7 +1547,13 @@ export default function App() {
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
               <AnimatePresence mode="wait">
-                {!logoConcepts ? (
+                {generatingLogos ? (
+                  <>
+                    <CardSkeleton />
+                    <CardSkeleton />
+                    <CardSkeleton />
+                  </>
+                ) : !logoConcepts ? (
                   <motion.div 
                     key="empty-logos"
                     initial={{ opacity: 0 }}
@@ -1578,7 +1707,16 @@ export default function App() {
 
               <div className="lg:col-span-8">
                 <AnimatePresence mode="wait">
-                  {!contentResult ? (
+                  {generatingContent ? (
+                    <motion.div 
+                      key="loading-content"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                    >
+                      <LabResultSkeleton />
+                    </motion.div>
+                  ) : !contentResult ? (
                     <motion.div 
                       key="empty-content"
                       initial={{ opacity: 0 }}
@@ -1752,7 +1890,16 @@ export default function App() {
 
                 <div className="lg:col-span-8">
                   <AnimatePresence mode="wait">
-                    {!businessResult ? (
+                    {generatingBusiness ? (
+                      <motion.div 
+                        key="loading-business"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        exit={{ opacity: 0 }}
+                      >
+                        <LabResultSkeleton />
+                      </motion.div>
+                    ) : !businessResult ? (
                       <motion.div 
                         key="empty-business"
                         initial={{ opacity: 0 }}
